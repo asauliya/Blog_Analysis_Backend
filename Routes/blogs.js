@@ -9,6 +9,7 @@ router.get('/api/blog-stats', fetchBlogsStats, async (req, res) => {
     try {
         const keyword = "privacy";
         const blogs = req.blogs;
+
         // counting total blogs 
         const count = _.size(blogs)
 
@@ -23,27 +24,33 @@ router.get('/api/blog-stats', fetchBlogsStats, async (req, res) => {
         // selected all the blog which include keyword privacy
         const funcM = memoize(search_result);
         const privacy = funcM(keyword);
-        console.log(funcM.cache.size);
-
-        function clearAllCache(){
-            funcM.cache.clear()
-            console.log("all cache cleared")
-            console.log(funcM.cache.size);
-        }
-        const temp = setTimeout(clearAllCache, 10000);
 
         // created  array of all unique titles of blogs 
-        const uniqueTitle = _.uniq(_.map(blogs, 'title'))
+        const uniqueTitle = () => {return  _.uniq(_.map(blogs, 'title'))}
+        const uniqueTitleM = memoize(uniqueTitle)
 
         // find largest title
-        let mx = 0;
-        let index = -1;
-        _.forEach(blogs, function (a, i) {
-            if (_.size(a.title) > mx) {
-                index = i;
-                mx = _.size(a.title)
-            }
-        })
+        const largestTitle = () => {
+            let mx = 0;
+            let index = -1;
+            _.forEach(blogs, function (a, i) {
+                if (_.size(a.title) > mx) {
+                    index = i;
+                    mx = _.size(a.title)
+                }
+            })
+
+            return index;
+        }
+        const largestTitleM = memoize(largestTitle)
+
+        function clearAllCache() {
+            funcM.cache.clear()
+            largestTitleM.cache.clear()
+            console.log("all cache cleared")
+        }
+        // clear cache after 100sec
+        const temp = setTimeout(clearAllCache, 100000);
 
         if (count == 0) {
             res.json({
@@ -57,8 +64,8 @@ router.get('/api/blog-stats', fetchBlogsStats, async (req, res) => {
             const obj = {
                 "total_blogs": count,
                 "number_of_blogs_with_privacy": _.size(privacy),
-                "unique_titles": uniqueTitle,
-                "blog_with_longest_title": blogs[index]
+                "unique_titles": uniqueTitleM(),
+                "blog_with_longest_title": blogs[largestTitleM()]
             }
 
             res.json(obj);
